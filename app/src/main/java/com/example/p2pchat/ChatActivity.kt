@@ -4,13 +4,24 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.net.NetworkInfo
+import android.net.wifi.p2p.WifiP2pConfig
 import android.net.wifi.p2p.WifiP2pDevice
 import android.net.wifi.p2p.WifiP2pDeviceList
+import android.net.wifi.p2p.WifiP2pInfo
 import android.net.wifi.p2p.WifiP2pManager
+import android.os.AsyncTask
 import android.os.Bundle
 import android.view.View
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
+import java.io.IOException
+import java.io.InputStream
+import java.io.OutputStream
+import java.net.InetAddress
+import java.net.ServerSocket
+import java.net.Socket
+import java.util.*
 
 class ChatActivity : AppCompatActivity() {
 
@@ -24,6 +35,14 @@ class ChatActivity : AppCompatActivity() {
 
     private lateinit var devices: MutableList<WifiP2pDevice>
     private lateinit var deviceArrayAdapter: ArrayAdapter<String>
+
+    private lateinit var connectionInfo: WifiP2pInfo
+    private lateinit var chatServer: ChatServer
+    private lateinit var chatClient: ChatClient
+
+    companion object {
+        private const val SERVER_PORT = 8888
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -42,8 +61,7 @@ class ChatActivity : AppCompatActivity() {
 
         deviceListView.onItemClickListener = AdapterView.OnItemClickListener { _, _, position, _ ->
             val selectedDevice = devices[position]
-            // Connect to the selected device
-            // Implement the connection logic here
+            connectToDevice(selectedDevice)
         }
 
         discoverButton.setOnClickListener {
@@ -59,11 +77,13 @@ class ChatActivity : AppCompatActivity() {
         super.onResume()
         registerReceiver(receiver, IntentFilter(WifiP2pManager.WIFI_P2P_STATE_CHANGED_ACTION))
         registerReceiver(receiver, IntentFilter(WifiP2pManager.WIFI_P2P_PEERS_CHANGED_ACTION))
+        registerReceiver(receiver, IntentFilter(WifiP2pManager.WIFI_P2P_CONNECTION_CHANGED_ACTION))
     }
 
     override fun onPause() {
         super.onPause()
         unregisterReceiver(receiver)
+        closeSocketConnection()
     }
 
     private fun discoverPeers() {
@@ -73,7 +93,22 @@ class ChatActivity : AppCompatActivity() {
             }
 
             override fun onFailure(reasonCode: Int) {
-                showToast("Peer discovery failed. Please try again. Code: $reasonCode")
+                showToast("Peer discovery failed. Please try again.")
+            }
+        })
+    }
+
+    private fun connectToDevice(device: WifiP2pDevice) {
+        val config = WifiP2pConfig().apply {
+            deviceAddress = device.deviceAddress
+        }
+        wifiP2pManager.connect(channel, config, object : WifiP2pManager.ActionListener {
+            override fun onSuccess() {
+                showToast("Connection request sent to ${device.deviceName}. Waiting for connection to be established...")
+            }
+
+            override fun onFailure(reasonCode: Int) {
+                showToast("Connection to ${device.deviceName} failed. Please try again.")
             }
         })
     }
@@ -102,6 +137,26 @@ class ChatActivity : AppCompatActivity() {
                         })
                     }
                 }
+                WifiP2pManager.WIFI_P2P_CONNECTION_CHANGED_ACTION -> {
+                    val networkInfo = intent.getParcelableExtra<NetworkInfo>(WifiP2pManager.EXTRA_NETWORK_INFO)
+                    if (networkInfo?.isConnected == true) {
+                        // We are connected, get connection information
+                        wifiP2pManager.requestConnectionInfo(channel, object : WifiP2pManager.ConnectionInfoListener {
+                            override fun onConnectionInfoAvailable(info: WifiP2pInfo) {
+                                connectionInfo = info
+                                if (connectionInfo.groupFormed && connectionInfo.isGroupOwner) {
+                                    // We are the group owner, start a chat server
+                                    chatServer = ChatServer()
+                                    chatServer.start()
+                                } else if (connectionInfo.groupFormed) {
+                                    // We are a client, connect to the group owner
+                                    chatClient = ChatClient(connectionInfo.groupOwnerAddress)
+                                    chatClient.start()
+                                }
+                            }
+                        })
+                    }
+                }
             }
         }
     }
@@ -110,5 +165,67 @@ class ChatActivity : AppCompatActivity() {
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
     }
 
-    // Rest of the code for sending/receiving messages, connecting to other devices, etc.
+    private fun closeSocketConnection() {
+        try {
+            chatServer?.stop()
+            chatClient?.stop()
+        } catch (e: IOException) {
+            e.printStackTrace()
+        }
+    }
+
+    private inner class ChatServer : Thread() {
+        private var running = false
+
+        override fun start() {
+            running = true
+            super.start()
+        }
+
+        fun stop1() {
+            running = false
+        }
+
+        override fun run() {
+            var serverSocket: ServerSocket? = null
+            try {
+                serverSocket = ServerSocket(SERVER_PORT)
+                while (running) {
+                    val socket = serverSocket.accept()
+                    // Handle incoming connections
+                }
+            } catch (e: IOException) {
+                e.printStackTrace()
+            } finally {
+                serverSocket?.close()
+            }
+        }
+    }
+
+    private inner class ChatClient(private val hostAddress: InetAddress) : Thread() {
+        private var running = false
+
+        override fun start() {
+            running = true
+            super.start()
+        }
+
+        fun stop1() {
+            running = false
+        }
+
+        override fun run() {
+            var socket: Socket? = null
+            try {
+                socket = Socket(hostAddress, SERVER_PORT)
+                // Handle the connection
+            } catch (e: IOException) {
+                e.printStackTrace()
+            } finally {
+                socket?.close()
+            }
+        }
+    }
+
+    // Rest of the code for sending/receiving messages, handling data exchange, etc.
 }
