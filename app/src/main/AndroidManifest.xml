@@ -23,6 +23,13 @@
         android:theme="@style/Theme.P2PChat"
         tools:targetApi="33">
         <activity
+            android:name=".DeviceList"
+            android:exported="false">
+            <meta-data
+                android:name="android.app.lib_name"
+                android:value="" />
+        </activity>
+        <activity
             android:name=".ChatActivity"
             android:exported="false">
             <meta-data
