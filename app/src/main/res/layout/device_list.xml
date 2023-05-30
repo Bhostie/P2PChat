@@ -5,7 +5,7 @@
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:padding="16dp"
-    tools:context=".ChatActivity">
+    tools:context=".DeviceList">
 
     <ListView
         android:id="@+id/deviceListView"

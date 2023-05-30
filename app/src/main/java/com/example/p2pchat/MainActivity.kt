@@ -3,7 +3,6 @@ package com.example.p2pchat
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.net.wifi.p2p.WifiP2pManager
 import android.os.Bundle
 import android.widget.Button
 import android.widget.Toast
@@ -79,7 +78,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startChatActivity() {
-        val intent = Intent(this, ChatActivity::class.java)
+        val intent = Intent(this, DeviceList::class.java)
         startActivity(intent)
     }
 }
