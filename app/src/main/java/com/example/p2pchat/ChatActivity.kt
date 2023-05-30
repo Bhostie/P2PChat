@@ -15,11 +15,11 @@ class ChatActivity : AppCompatActivity() {
     private lateinit var messageEditText: EditText
     private lateinit var sendButton: Button
 
+    private lateinit var outputWriter: BufferedWriter
+    private lateinit var inputReader: BufferedReader
+    private var isGroupOwner: Boolean = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
-
-
-
-
         super.onCreate(savedInstanceState)
         setContentView(R.layout.test)
 
@@ -27,60 +27,48 @@ class ChatActivity : AppCompatActivity() {
         messageEditText = findViewById(R.id.inputMessageEditText)
         sendButton = findViewById(R.id.sendButton)
 
-        val outputWriter: BufferedWriter? = (applicationContext as? DeviceList)?.outputWriter
-        val inputReader: BufferedReader? = (applicationContext as? DeviceList)?.inputReader
+        outputWriter = DeviceList.outputWriter!!
+        inputReader = DeviceList.inputReader!!
 
+        isGroupOwner = intent.getBooleanExtra("isGroupOwner", false)
 
         sendButton.setOnClickListener {
             val message = messageEditText.text.toString()
             if (message.isNotEmpty()) {
-                sendMessage(message, outputWriter)
+                sendMessage(message)
                 messageEditText.text.clear()
             }
         }
 
         Thread {
-            while (true) {
-                val message = readMessage(inputReader)
-                if (message.isEmpty()) {
-                    // Empty message indicates the end of the input stream, so break the loop
-                    break
+            try {
+                var message: String?
+                if (inputReader != null) {
+                    while (inputReader.readLine().also { message = it } != null) {
+                        runOnUiThread {
+                            messageTextView.append("Received: $message\n")
+                        }
+                    }
                 }
-                runOnUiThread {
-                    messageTextView.append("Received: $message\n")
-                }
+            } catch (e: IOException) {
+                e.printStackTrace()
             }
         }.start()
     }
 
-    private fun sendMessage(message: String, outputWriter: BufferedWriter?) {
-        try {
-            outputWriter?.run {
-                write(message)
-                newLine()
-                flush()
+    private fun sendMessage(message: String) {
+        Thread {
+            try {
+                outputWriter?.write(message)
+                outputWriter?.newLine()
+                outputWriter?.flush()
+                runOnUiThread {
+                    messageTextView.append("Sent: $message\n")
+                }
+            } catch (e: IOException) {
+                e.printStackTrace()
             }
-            runOnUiThread {
-                messageTextView.append("Sent: $message\n")
-            }
-        } catch (e: IOException) {
-            e.printStackTrace()
-        }
+        }.start()
     }
 
-    private fun readMessage(inputReader: BufferedReader?): String {
-        val message = StringBuilder()
-        try {
-            var line: String? = inputReader?.readLine()
-            while (line != null) {
-                message.append(line)
-                if (inputReader != null) {
-                    line = inputReader.readLine()
-                }
-            }
-        } catch (e: IOException) {
-            e.printStackTrace()
-        }
-        return message.toString()
-    }
 }

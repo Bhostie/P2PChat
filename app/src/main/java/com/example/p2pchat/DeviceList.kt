@@ -23,8 +23,8 @@ import java.net.Socket
 class DeviceList : AppCompatActivity() {
 
 
-    var outputWriter: BufferedWriter? = null
-    var inputReader: BufferedReader? = null
+    //var outputWriter: BufferedWriter? = null
+    //var inputReader: BufferedReader? = null
 
     private lateinit var wifiP2pManager: WifiP2pManager
     private lateinit var channel: WifiP2pManager.Channel
@@ -40,8 +40,11 @@ class DeviceList : AppCompatActivity() {
 
     private lateinit var connectionInfo: WifiP2pInfo
 
+
     companion object {
         private const val SERVER_PORT = 8888
+        var outputWriter: BufferedWriter? = null
+        var inputReader: BufferedReader? = null
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -148,6 +151,8 @@ class DeviceList : AppCompatActivity() {
                     if (networkInfo?.isConnected == true) {
                         wifiP2pManager.requestConnectionInfo(channel) { info: WifiP2pInfo ->
                             connectionInfo = info
+
+                            // GROUP OWNER CASE
                             if (connectionInfo.groupFormed && connectionInfo.isGroupOwner) {
                                 Thread {
                                     // Start server socket to listen for incoming connections
@@ -157,10 +162,15 @@ class DeviceList : AppCompatActivity() {
                                     outputWriter = clientSocket.getOutputStream().bufferedWriter()
                                     inputReader = clientSocket.getInputStream().bufferedReader()
 
+
                                     // Start activity to handle the chat
                                     val intent = Intent(context, ChatActivity::class.java)
+                                    intent.putExtra("isGroupOwner", true)
+
                                     startActivity(intent)
                                 }.start()
+
+                                // GROUP CLIENT CASE
                             } else if (connectionInfo.groupFormed) {
                                 Thread {
                                     // Connect as a client to the group owner
@@ -172,6 +182,7 @@ class DeviceList : AppCompatActivity() {
 
                                     // Start activity to handle the chat
                                     val intent = Intent(context, ChatActivity::class.java)
+                                    intent.putExtra("isGroupOwner", false)
                                     startActivity(intent)
                                 }.start()
                             }
