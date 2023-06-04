@@ -4,6 +4,7 @@ import android.os.Bundle
 import android.widget.Button
 import android.widget.EditText
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import java.io.BufferedReader
 import java.io.BufferedWriter
@@ -45,9 +46,21 @@ class ChatActivity : AppCompatActivity() {
                 var message: String?
                 if (inputReader != null) {
                     while (inputReader.readLine().also { message = it } != null) {
-                        runOnUiThread {
-                            messageTextView.append("Received: $message\n")
+
+                        if(message?.startsWith("ACK::") == true){
+                            runOnUiThread {
+                                showToast("Message has been sent succesfully")
+                            }
+
                         }
+                        else{
+                            runOnUiThread {
+                                messageTextView.append("Received: $message\n")
+                            }
+                            sendMessage("ACK::")
+                        }
+
+
                     }
                 }
             } catch (e: IOException) {
@@ -62,13 +75,27 @@ class ChatActivity : AppCompatActivity() {
                 outputWriter?.write(message)
                 outputWriter?.newLine()
                 outputWriter?.flush()
-                runOnUiThread {
-                    messageTextView.append("Sent: $message\n")
+
+                if(message.startsWith("ACK::")){
+                    runOnUiThread{
+                        showToast("ACK Sent")
+                    }
                 }
+                else{
+                    runOnUiThread {
+                        messageTextView.append("Sent: $message\n")
+                    }
+                }
+
+
             } catch (e: IOException) {
                 e.printStackTrace()
             }
         }.start()
+    }
+
+    private fun showToast(message: String) {
+        Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
     }
 
 }
