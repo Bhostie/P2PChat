@@ -100,7 +100,7 @@ class DeviceList : AppCompatActivity() {
             }
 
             override fun onFailure(reasonCode: Int) {
-                showToast("Peer discovery failed. Please try again.")
+                showToast("Peer discovery failed. Please try again. $reasonCode")
             }
         })
     }
